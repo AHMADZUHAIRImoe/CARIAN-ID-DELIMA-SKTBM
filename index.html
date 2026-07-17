@@ -39,13 +39,17 @@
         
         <!-- Header Section -->
         <div class="bg-blue-600 p-6 text-center relative">
-            <!-- Butang rahsia log masuk Admin (Ikon Perisai - Klik 5 kali) -->
-            <button onclick="handleAdminClick()" class="absolute top-4 right-4 text-white opacity-40 hover:opacity-100 transition-opacity focus:outline-none" title="Log Masuk Admin">
-                <i class="fa-solid fa-user-shield text-lg"></i>
-            </button>
+            <!-- Label versi v1.0 rahsia (tiada petunjuk klik, cursor default, tiada kesan hover, tiada highlight biru bila diketuk laju) -->
+            <div onclick="handleAdminClick()" class="absolute top-4 right-4 text-white/30 text-[10px] font-mono tracking-wider font-semibold cursor-default select-none bg-black/5 px-2 py-1 rounded-lg" style="-webkit-tap-highlight-color: transparent;" title="">
+                v1.0
+            </div>
 
-            <div class="inline-flex items-center justify-center w-16 h-16 bg-white rounded-full mb-4 shadow-inner">
-                <i class="fa-solid fa-graduation-cap text-3xl text-blue-600"></i>
+            <!-- Logo sekolah dengan format CDN lh3 baru dan pembungkus bulat kemas -->
+            <div class="inline-flex items-center justify-center w-24 h-24 bg-white rounded-full mb-4 shadow-md p-1 overflow-hidden">
+                <img src="https://lh3.googleusercontent.com/d/19sMt_aOnM9FAUTpgTXhHCEtubvbUx2Wr" 
+                     onerror="this.onerror=null;this.src='LOGO SKTBM.png';" 
+                     alt="Logo SK Taman Bukit Maluri" 
+                     class="w-full h-full object-contain rounded-full">
             </div>
             <h2 class="text-xs sm:text-sm font-semibold text-blue-200 tracking-wider uppercase mb-1">SK Taman Bukit Maluri</h2>
             <h1 class="text-2xl font-bold text-white mb-2">Carian ID DELIMA</h1>
@@ -188,7 +192,9 @@
                     <i class="fa-solid fa-users-gear text-xl text-blue-400"></i>
                 </div>
                 <div>
-                    <h1 class="text-xl sm:text-2xl font-bold tracking-tight">Dashboard Admin</h1>
+                    <h1 class="text-xl sm:text-2xl font-bold tracking-tight flex items-center gap-2">
+                        Dashboard Admin <span class="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full font-mono">v1.0</span>
+                    </h1>
                     <p class="text-slate-300 text-xs sm:text-sm mt-0.5">Pangkalan Data ID DELIMA - SK Taman Bukit Maluri</p>
                 </div>
             </div>
@@ -263,6 +269,7 @@
         </div>
     </div>
 
+    <!-- Script Logik Utama -->
     <script>
         // =========================================================================
         // TETAPAN PANGKALAN DATA (GOOGLE SHEETS)
