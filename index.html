@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carian ID DELIMA - SK Taman Bukit Maluri</title>
+    <!-- Tailwind CSS untuk gaya antaramuka -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome untuk ikon -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- PapaParse untuk membaca file CSV dari Google Sheets dengan mudah -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+            min-height: 100vh;
+        }
+        .fade-in {
+            animation: fadeIn 0.4s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center p-4 sm:p-8 min-h-screen">
+
+    <!-- PAPARAN UMUM (Carian Murid) -->
+    <div id="publicView" class="glass-card w-full max-w-md rounded-2xl shadow-2xl overflow-hidden fade-in">
+        
+        <!-- Header Section -->
+        <div class="bg-blue-600 p-6 text-center relative">
+            <!-- Butang rahsia log masuk Admin (Ikon Perisai - Klik 5 kali) -->
+            <button onclick="handleAdminClick()" class="absolute top-4 right-4 text-white opacity-40 hover:opacity-100 transition-opacity focus:outline-none" title="Log Masuk Admin">
+                <i class="fa-solid fa-user-shield text-lg"></i>
+            </button>
+
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-white rounded-full mb-4 shadow-inner">
+                <i class="fa-solid fa-graduation-cap text-3xl text-blue-600"></i>
+            </div>
+            <h2 class="text-xs sm:text-sm font-semibold text-blue-200 tracking-wider uppercase mb-1">SK Taman Bukit Maluri</h2>
+            <h1 class="text-2xl font-bold text-white mb-2">Carian ID DELIMA</h1>
+            <p class="text-blue-100 text-sm">Sila masukkan Nombor Kad Pengenalan anda</p>
+        </div>
+
+        <!-- Search Form Section -->
+        <div class="p-6 sm:p-8">
+            <form id="searchForm" class="space-y-4" onsubmit="event.preventDefault(); processSearch();">
+                <div>
+                    <label for="icInput" class="block text-sm font-medium text-gray-700 mb-1">No. Kad Pengenalan</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fa-regular fa-id-card text-gray-400"></i>
+                        </div>
+                        <input type="text" id="icInput" 
+                            class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-shadow" 
+                            placeholder="Contoh: 090101011234 (Tanpa sengkang)"
+                            required pattern="[0-9]{12}" title="Sila masukkan 12 digit nombor sahaja">
+                    </div>
+                    <p class="mt-2 text-xs text-gray-500">Pastikan masukkan 12 digit nombor sahaja tanpa tanda sengkang (-).</p>
+                </div>
+
+                <button type="submit" id="searchBtn"
+                    class="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                    <i class="fa-solid fa-search mr-2"></i> Semak Sekarang
+                </button>
+            </form>
+
+            <!-- Loading Indicator (Hidden by default) -->
+            <div id="loadingState" class="hidden mt-6 text-center fade-in">
+                <i class="fa-solid fa-circle-notch fa-spin text-blue-600 text-3xl mb-2"></i>
+                <p class="text-sm text-gray-600">Sedang menyemak pangkalan data...</p>
+            </div>
+
+            <!-- Error Message (Hidden by default) -->
+            <div id="errorState" class="hidden mt-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg fade-in">
+                <div class="flex items-start">
+                    <div class="flex-shrink-0">
+                        <i class="fa-solid fa-circle-exclamation text-red-500"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm text-red-700 font-medium" id="errorMessage">Rekod tidak dijumpai.</p>
+                        <p class="text-xs text-red-600 mt-1">Sila pastikan No. IC yang dimasukkan adalah betul atau hubungi guru kelas.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Result Display (Hidden by default) -->
+            <div id="resultState" class="hidden mt-6 fade-in">
+                <div class="bg-gray-50 rounded-xl p-5 border border-gray-200 shadow-inner">
+                    <h3 class="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2 mb-4">Maklumat Murid</h3>
+                    
+                    <div class="space-y-4">
+                        <!-- Nama -->
+                        <div>
+                            <span class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Nama Penuh</span>
+                            <div class="text-sm font-semibold text-gray-950 bg-white p-2.5 rounded-lg border border-gray-100" id="resNama">
+                                -
+                            </div>
+                        </div>
+
+                        <!-- Grid untuk Tahun & Kelas -->
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <span class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Tahun</span>
+                                <div class="text-sm font-medium text-gray-900 bg-white p-2.5 rounded-lg border border-gray-100" id="resTahun">
+                                    -
+                                </div>
+                            </div>
+                            <div>
+                                <span class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Kelas</span>
+                                <div class="text-sm font-medium text-gray-900 bg-white p-2.5 rounded-lg border border-gray-100" id="resKelas">
+                                    -
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Email -->
+                        <div>
+                            <span class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Email DELIMA</span>
+                            <div class="flex items-center justify-between text-sm bg-white p-2.5 rounded-lg border border-gray-100">
+                                <span class="font-medium text-blue-600 break-all" id="resEmail">-</span>
+                                <button onclick="copyText('resEmail')" class="ml-2 text-gray-400 hover:text-blue-600 focus:outline-none p-1" title="Salin Email">
+                                    <i class="fa-regular fa-copy"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Password -->
+                        <div>
+                            <span class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Kata Laluan</span>
+                            <div class="flex items-center justify-between text-sm bg-white p-2.5 rounded-lg border border-gray-100">
+                                <span class="font-medium text-gray-900 tracking-wider" id="resPassword">********</span>
+                                <div class="flex space-x-2">
+                                    <button onclick="togglePassword()" id="togglePwdBtn" class="text-gray-400 hover:text-gray-600 focus:outline-none p-1" title="Papar/Sembunyi">
+                                        <i class="fa-regular fa-eye"></i>
+                                    </button>
+                                    <button onclick="copyText('resPassword', true)" class="text-gray-400 hover:text-blue-600 focus:outline-none p-1" title="Salin Kata Laluan">
+                                        <i class="fa-regular fa-copy"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Copy Alert Notification -->
+                    <div id="copyAlert" class="hidden mt-3 text-center text-xs font-medium text-green-600 bg-green-50 py-1.5 rounded-md transition-opacity">
+                        <i class="fa-solid fa-check mr-1"></i> Berjaya disalin ke papan klip!
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL LOG MASUK ADMIN -->
+    <div id="adminModal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50 fade-in">
+        <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-2xl w-full max-w-sm mx-4">
+            <h2 class="text-xl font-bold mb-2 text-gray-800 flex items-center"><i class="fa-solid fa-user-shield mr-3 text-blue-600"></i>Log Masuk Admin</h2>
+            <p class="text-sm text-gray-500 mb-5">Sila masukkan kata laluan untuk mengakses pangkalan data.</p>
+            
+            <input type="password" id="adminPassword" class="w-full px-4 py-3 border border-gray-300 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50" placeholder="Masukkan Kata Laluan">
+            
+            <div class="flex space-x-3">
+                <button onclick="closeAdminModal()" class="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition font-medium focus:outline-none">Batal</button>
+                <button onclick="loginAdmin()" class="flex-1 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition font-medium focus:outline-none shadow-md">Log Masuk</button>
+            </div>
+            
+            <p id="adminError" class="text-red-600 text-sm mt-4 hidden text-center bg-red-50 p-2.5 rounded-lg border border-red-100"><i class="fa-solid fa-circle-xmark mr-1.5"></i>Kata laluan tidak sah!</p>
+        </div>
+    </div>
+
+    <!-- PAPARAN ADMIN (Dashboard & Jadual Data) -->
+    <div id="adminView" class="hidden glass-card w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden fade-in mt-2">
+        <!-- Header Admin -->
+        <div class="bg-slate-800 p-5 sm:p-6 flex flex-col sm:flex-row justify-between items-center text-white gap-4">
+            <div class="flex items-center w-full sm:w-auto">
+                <div class="w-12 h-12 bg-slate-700 rounded-full flex items-center justify-center mr-4 shadow-inner flex-shrink-0">
+                    <i class="fa-solid fa-users-gear text-xl text-blue-400"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-bold tracking-tight">Dashboard Admin</h1>
+                    <p class="text-slate-300 text-xs sm:text-sm mt-0.5">Pangkalan Data ID DELIMA - SK Taman Bukit Maluri</p>
+                </div>
+            </div>
+            <button onclick="logoutAdmin()" class="w-full sm:w-auto px-4 py-2.5 bg-red-500/10 hover:bg-red-500 border border-red-500/30 hover:border-red-500 text-red-400 hover:text-white rounded-xl text-sm font-semibold transition-all flex items-center justify-center focus:outline-none">
+                <i class="fa-solid fa-right-from-bracket mr-2"></i> Log Keluar
+            </button>
+        </div>
+        
+        <div class="p-5 sm:p-6 bg-slate-50/50">
+            <!-- KPI / Summary Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                <div class="bg-white border border-gray-100 shadow-sm p-5 rounded-2xl flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-xs font-semibold uppercase tracking-wider">Jumlah Rekod Murid</p>
+                        <h3 class="text-3xl font-bold text-slate-800 mt-1" id="totalRecords">0</h3>
+                    </div>
+                    <div class="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center">
+                        <i class="fa-solid fa-users text-2xl text-blue-500"></i>
+                    </div>
+                </div>
+                <div class="bg-white border border-gray-100 shadow-sm p-5 rounded-2xl flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-xs font-semibold uppercase tracking-wider">Status Data (Live)</p>
+                        <h3 class="text-lg font-bold text-green-600 mt-1" id="dataSourceStatus">Memuat...</h3>
+                    </div>
+                    <div class="w-14 h-14 bg-green-50 rounded-full flex items-center justify-center">
+                        <i class="fa-solid fa-cloud-arrow-down text-2xl text-green-500"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table Controls -->
+            <div class="flex flex-col sm:flex-row justify-between mb-4 gap-3">
+                <div class="relative w-full sm:w-1/2 lg:w-1/3">
+                    <input type="text" id="adminSearchInput" onkeyup="filterAdminTable()" class="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm text-sm transition-shadow" placeholder="Cari Nama, No IC, Kelas atau Email...">
+                    <i class="fa-solid fa-search absolute left-4 top-3.5 text-gray-400"></i>
+                </div>
+                <div class="flex justify-end w-full sm:w-auto">
+                    <button onclick="refreshAdminData()" class="px-5 py-3 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-slate-100 hover:text-blue-600 transition shadow-sm font-medium text-sm flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-slate-200">
+                        <i class="fa-solid fa-rotate mr-2"></i> Muat Semula Data
+                    </button>
+                </div>
+            </div>
+
+            <!-- Data Table -->
+            <div class="overflow-hidden bg-white rounded-xl border border-gray-200 shadow-sm">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200" id="adminTable">
+                        <thead class="bg-slate-50">
+                            <tr>
+                                <th scope="col" class="px-4 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-1/12">Bil</th>
+                                <th scope="col" class="px-4 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-2/12">No. IC</th>
+                                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-3/12">Nama Penuh</th>
+                                <th scope="col" class="px-4 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-1/12">Tahun</th>
+                                <th scope="col" class="px-4 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-1/12">Kelas</th>
+                                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-2/12">Email DELIMA</th>
+                                <th scope="col" class="px-4 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-2/12">Kata Laluan</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-100" id="adminTableBody">
+                            <!-- Data rows will be injected here -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Loading State untuk Admin Table -->
+                <div id="adminLoadingState" class="hidden text-center py-16 bg-white">
+                    <i class="fa-solid fa-circle-notch fa-spin text-blue-500 text-4xl mb-4"></i>
+                    <p class="text-sm font-medium text-gray-500 mt-2">Mengambil pangkalan data terkini dari Google Sheets...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // =========================================================================
+        // TETAPAN PANGKALAN DATA (GOOGLE SHEETS)
+        // =========================================================================
+        // Pautan ini telah ditetapkan secara kekal (hardcoded) seperti yang dibekalkan.
+        const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQcstDECYQl0EQ1FvKFiEFPxGL7JpfFUwnQz-Lg3AikoKpCQ1OzyFv_isv9cn6qjSI8zBi5EK4K1DKy/pub?gid=2047953832&single=true&output=csv";
+        
+        const ADMIN_PASSWORD = "cikgu123"; // Kata laluan lalai untuk log masuk panel admin
+        
+        let actualPassword = "";
+        let cachedAllData = []; // Menyimpan semua rekod pangkalan data dalam memori selepas di muat turun
+
+        // Fungsi pembantu untuk membaca nilai dari objek berdasarkan kunci kes nama yang tidak sensitif
+        function getCleanValue(row, keyName) {
+            const target = keyName.toLowerCase().replace(/\s/g, '');
+            const foundKey = Object.keys(row).find(k => k.toLowerCase().replace(/\s/g, '') === target);
+            return foundKey ? row[foundKey].toString().trim() : '';
+        }
+
+        async function fetchAllData() {
+            try {
+                // Mengambil data secara 'live' dari Google Sheet (CSV)
+                const response = await fetch(GOOGLE_SHEET_CSV_URL);
+                if (!response.ok) throw new Error("Gagal mengambil data dari Google Sheets");
+                
+                const csvText = await response.text();
+                // Menggunakan PapaParse dengan 'header: true' untuk memetakan nama lajur dinamik
+                const result = Papa.parse(csvText, { header: true, skipEmptyLines: true });
+                const rows = result.data;
+                
+                let parsedData = [];
+                rows.forEach((row, index) => {
+                    // Ekstrak data berdasarkan pengepala lajur: Bil, Emel, Nama, IC, Tahun, Kelas, Password
+                    const icVal = getCleanValue(row, "IC");
+                    if (icVal) {
+                        parsedData.push({
+                            bil: getCleanValue(row, "Bil") || (index + 1).toString(),
+                            emel: getCleanValue(row, "Emel") || "Tiada Maklumat",
+                            nama: getCleanValue(row, "Nama") || "Tiada Maklumat",
+                            ic: icVal,
+                            tahun: getCleanValue(row, "Tahun") || "Tiada Maklumat",
+                            kelas: getCleanValue(row, "Kelas") || "Tiada Maklumat",
+                            password: getCleanValue(row, "Password") || "Tiada Maklumat"
+                        });
+                    }
+                });
+                return parsedData;
+            } catch (error) {
+                console.error("Ralat Network:", error);
+                throw error;
+            }
+        }
+
+        async function processSearch() {
+            const icInput = document.getElementById('icInput').value.trim();
+            const btn = document.getElementById('searchBtn');
+            
+            // Set semula UI ke keadaan asal
+            hideAllStates();
+            showLoading(true);
+            btn.disabled = true;
+            btn.classList.add('opacity-70');
+
+            try {
+                // Sentiasa mengambil pangkalan data terkini apabila carian dibuat
+                cachedAllData = await fetchAllData();
+                
+                // Cari rekod murid yang sepadan dengan No IC yang ditaip (membuang sebarang ruang/simbol)
+                const studentData = cachedAllData.find(s => s.ic.replace(/[^0-9]/g, '') === icInput.replace(/[^0-9]/g, ''));
+
+                showLoading(false);
+                btn.disabled = false;
+                btn.classList.remove('opacity-70');
+
+                if (studentData) {
+                    displayResult(studentData);
+                } else {
+                    showError();
+                }
+
+            } catch (error) {
+                console.error("Ralat Carian:", error);
+                showLoading(false);
+                btn.disabled = false;
+                btn.classList.remove('opacity-70');
+                showError("Berlaku ralat capaian ke Google Sheets. Sila pastikan pautan adalah sah atau hubungi Admin.");
+            }
+        }
+
+        function displayResult(data) {
+            document.getElementById('resNama').textContent = data.nama;
+            document.getElementById('resTahun').textContent = data.tahun;
+            document.getElementById('resKelas').textContent = data.kelas;
+            document.getElementById('resEmail').textContent = data.emel;
+            
+            // Sembunyikan kata laluan pada mulanya untuk privasi
+            actualPassword = data.password;
+            document.getElementById('resPassword').textContent = "********";
+            document.getElementById('togglePwdBtn').innerHTML = '<i class="fa-regular fa-eye"></i>';
+            
+            document.getElementById('resultState').classList.remove('hidden');
+        }
+
+        function togglePassword() {
+            const pwdEl = document.getElementById('resPassword');
+            const btnEl = document.getElementById('togglePwdBtn');
+            
+            if (pwdEl.textContent === "********") {
+                pwdEl.textContent = actualPassword;
+                btnEl.innerHTML = '<i class="fa-regular fa-eye-slash"></i>';
+            } else {
+                pwdEl.textContent = "********";
+                btnEl.innerHTML = '<i class="fa-regular fa-eye"></i>';
+            }
+        }
+
+        function copyText(elementId, isPassword = false) {
+            let textToCopy = "";
+            if (isPassword) {
+                textToCopy = actualPassword;
+            } else {
+                textToCopy = document.getElementById(elementId).innerText;
+            }
+
+            // Kaedah salinan fallback untuk menangani halangan iframe sesetengah pelayar web
+            const textArea = document.createElement("textarea");
+            textArea.value = textToCopy;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                showCopyAlert();
+            } catch (err) {
+                console.error('Gagal menyalin teks', err);
+            }
+            document.body.removeChild(textArea);
+        }
+
+        function showCopyAlert() {
+            const alert = document.getElementById('copyAlert');
+            alert.classList.remove('hidden');
+            setTimeout(() => {
+                alert.classList.add('hidden');
+            }, 2500);
+        }
+
+        function showLoading(show) {
+            const el = document.getElementById('loadingState');
+            if (show) el.classList.remove('hidden');
+            else el.classList.add('hidden');
+        }
+
+        function showError(customMessage = null) {
+            const el = document.getElementById('errorState');
+            const msgEl = document.getElementById('errorMessage');
+            if (customMessage) {
+                msgEl.textContent = customMessage;
+            } else {
+                msgEl.textContent = "Rekod tidak dijumpai.";
+            }
+            el.classList.remove('hidden');
+        }
+
+        function hideAllStates() {
+            document.getElementById('loadingState').classList.add('hidden');
+            document.getElementById('errorState').classList.add('hidden');
+            document.getElementById('resultState').classList.add('hidden');
+        }
+
+        // =========================================================
+        // Logik Rahsia: Klik 5 kali berturut-turut untuk buka Admin
+        // =========================================================
+        let adminClickCount = 0;
+        let adminClickTimer = null;
+
+        function handleAdminClick() {
+            adminClickCount++;
+            
+            // Tetapkan masa tamat (2 saat). Jika tidak cukup laju klik 5 kali, kiraan akan diset semula ke 0.
+            clearTimeout(adminClickTimer);
+            adminClickTimer = setTimeout(() => {
+                adminClickCount = 0;
+            }, 2000);
+
+            // Jika dah cecah 5 klik
+            if (adminClickCount >= 5) {
+                openAdminModal();
+                adminClickCount = 0; // Set semula selepas berjaya buka
+                clearTimeout(adminClickTimer);
+            }
+        }
+
+        function openAdminModal() {
+            document.getElementById('adminModal').classList.remove('hidden');
+            document.getElementById('adminModal').classList.add('flex');
+            document.getElementById('adminPassword').value = ''; 
+            document.getElementById('adminError').classList.add('hidden');
+            setTimeout(() => document.getElementById('adminPassword').focus(), 150);
+        }
+
+        function closeAdminModal() {
+            document.getElementById('adminModal').classList.add('hidden');
+            document.getElementById('adminModal').classList.remove('flex');
+        }
+
+        function loginAdmin() {
+            const pwd = document.getElementById('adminPassword').value;
+            if (pwd === ADMIN_PASSWORD) {
+                closeAdminModal();
+                showAdminView();
+            } else {
+                document.getElementById('adminError').classList.remove('hidden');
+            }
+        }
+
+        // Benarkan kekunci "Enter" pada papan kekunci untuk log masuk admin secara pantas
+        document.getElementById('adminPassword').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                loginAdmin();
+            }
+        });
+
+        async function showAdminView() {
+            document.getElementById('publicView').classList.add('hidden');
+            document.getElementById('adminView').classList.remove('hidden');
+            await refreshAdminData();
+        }
+
+        function logoutAdmin() {
+            document.getElementById('adminView').classList.add('hidden');
+            document.getElementById('publicView').classList.remove('hidden');
+            
+            // Padam maklumat jadual demi keselamatan privasi semasa log keluar
+            document.getElementById('adminTableBody').innerHTML = ''; 
+            document.getElementById('adminSearchInput').value = '';
+            cachedAllData = []; 
+        }
+
+        async function refreshAdminData() {
+            const tbody = document.getElementById('adminTableBody');
+            const loading = document.getElementById('adminLoadingState');
+            const tableElement = document.getElementById('adminTable');
+            const statusEl = document.getElementById('dataSourceStatus');
+            
+            tbody.innerHTML = '';
+            tableElement.classList.add('hidden');
+            loading.classList.remove('hidden');
+
+            try {
+                cachedAllData = await fetchAllData();
+                
+                // Kemaskini statistik dashboard
+                document.getElementById('totalRecords').textContent = cachedAllData.length;
+                
+                statusEl.textContent = "Google Sheets (Aktif)";
+                statusEl.className = "text-lg font-bold text-green-600 mt-1";
+
+                renderAdminTable(cachedAllData);
+            } catch (error) {
+                console.error("Ralat memuatkan pangkalan data:", error);
+                statusEl.textContent = "Ralat Sambungan!";
+                statusEl.className = "text-lg font-bold text-red-600 mt-1";
+                document.getElementById('totalRecords').textContent = "0";
+                
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="px-6 py-8 text-center text-red-500 bg-red-50 font-medium">
+                            <i class="fa-solid fa-triangle-exclamation mr-2"></i>Gagal memuatkan data dari pautan Google Sheets. Pastikan pautan diterbitkan (Publish to the web) dalam format CSV.
+                        </td>
+                    </tr>`;
+            } finally {
+                loading.classList.add('hidden');
+                tableElement.classList.remove('hidden');
+            }
+        }
+
+        function renderAdminTable(dataToRender) {
+            const tbody = document.getElementById('adminTableBody');
+            tbody.innerHTML = '';
+            
+            if (dataToRender.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="px-6 py-8 text-center text-gray-500 font-medium bg-gray-50">
+                            Tiada rekod dijumpai yang bertepatan dengan carian anda.
+                        </td>
+                    </tr>`;
+                return;
+            }
+
+            dataToRender.forEach((row, index) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition-colors";
+                tr.innerHTML = `
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${row.bil}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${row.ic}</td>
+                    <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">${row.nama}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${row.tahun}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${row.kelas}</td>
+                    <td class="px-6 py-3 whitespace-nowrap text-sm text-blue-600">${row.emel}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 font-mono bg-gray-50">${row.password}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Fungsi carian pantas / filter pada jadual admin
+        function filterAdminTable() {
+            const query = document.getElementById('adminSearchInput').value.toLowerCase().trim();
+            
+            if (!query) {
+                renderAdminTable(cachedAllData);
+                return;
+            }
+
+            const filteredData = cachedAllData.filter(row => {
+                return (
+                    row.nama.toLowerCase().includes(query) ||
+                    row.ic.toLowerCase().includes(query) ||
+                    row.emel.toLowerCase().includes(query) ||
+                    row.kelas.toLowerCase().includes(query) ||
+                    row.tahun.toLowerCase().includes(query)
+                );
+            });
+            
+            renderAdminTable(filteredData);
+        }
+    </script>
+</body>
+</html>
