@@ -274,7 +274,6 @@
         // =========================================================================
         // TETAPAN PANGKALAN DATA (GOOGLE SHEETS)
         // =========================================================================
-        // Pautan ini telah ditetapkan secara kekal (hardcoded) seperti yang dibekalkan.
         const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQcstDECYQl0EQ1FvKFiEFPxGL7JpfFUwnQz-Lg3AikoKpCQ1OzyFv_isv9cn6qjSI8zBi5EK4K1DKy/pub?gid=2047953832&single=true&output=csv";
         
         const ADMIN_PASSWORD = "cikgu123"; // Kata laluan lalai untuk log masuk panel admin
@@ -304,11 +303,22 @@
                 rows.forEach((row, index) => {
                     // Ekstrak data berdasarkan pengepala lajur: Bil, Emel, Nama, IC, Tahun, Kelas, Password
                     const icVal = getCleanValue(row, "IC");
-                    if (icVal) {
+                    const namaVal = getCleanValue(row, "Nama");
+                    const emelVal = getCleanValue(row, "Emel");
+
+                    // PERTAHANAN (ANTI-TEST-ROW): Halang sebarang rekod yang mempunyai indikasi "ujian/development" dari dipaparkan
+                    const isDevelopmentRow = [icVal, namaVal, emelVal].some(val => 
+                        val.toLowerCase().includes("development") || 
+                        val.toLowerCase().includes("ujian") || 
+                        val.toLowerCase().includes("test") ||
+                        val.toLowerCase().includes("mock")
+                    );
+
+                    if (icVal && !isDevelopmentRow) {
                         parsedData.push({
                             bil: getCleanValue(row, "Bil") || (index + 1).toString(),
-                            emel: getCleanValue(row, "Emel") || "Tiada Maklumat",
-                            nama: getCleanValue(row, "Nama") || "Tiada Maklumat",
+                            emel: emelVal || "Tiada Maklumat",
+                            nama: namaVal || "Tiada Maklumat",
                             ic: icVal,
                             tahun: getCleanValue(row, "Tahun") || "Tiada Maklumat",
                             kelas: getCleanValue(row, "Kelas") || "Tiada Maklumat",
